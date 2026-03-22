@@ -1,34 +1,136 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* SYNTHESUS AI IDE - App Styles */
+
+/* Resizable Panel Handles */
+[data-panel-group-direction="horizontal"] > [data-resize-handle] {
+  width: 1px !important;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s ease;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+[data-panel-group-direction="horizontal"] > [data-resize-handle]:hover {
+  background: rgba(255, 0, 127, 0.5);
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+[data-panel-group-direction="vertical"] > [data-resize-handle] {
+  height: 1px !important;
+  background: rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s ease;
 }
 
-.App-link {
-    color: #61dafb;
+[data-panel-group-direction="vertical"] > [data-resize-handle]:hover {
+  background: rgba(255, 0, 127, 0.5);
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Monaco Editor Theme Override */
+.monaco-editor .cursors-layer .cursor {
+  background-color: #FF007F !important;
+}
+
+.monaco-editor .view-overlays .current-line {
+  background: rgba(255, 0, 127, 0.05) !important;
+  border: none !important;
+}
+
+/* Terminal Styles */
+.terminal-container {
+  background: #030308;
+}
+
+/* Model Selector Dropdown */
+.model-selector [data-radix-select-viewport] {
+  background: rgba(11, 11, 20, 0.95);
+  backdrop-filter: blur(16px);
+}
+
+/* Plugin Card */
+.plugin-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.plugin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(255, 0, 127, 0.2);
+}
+
+/* Sidebar Navigation */
+.sidebar-item {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-item.active {
+  background: linear-gradient(90deg, rgba(255, 0, 127, 0.2), transparent);
+  border-left: 2px solid #FF007F;
+}
+
+/* Settings Panel */
+.settings-section {
+  background: rgba(11, 11, 20, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Loading Spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Slider Cosmic Style */
+.slider-cosmic [data-radix-slider-track] {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.slider-cosmic [data-radix-slider-range] {
+  background: linear-gradient(90deg, #FFD700, #FF007F);
+}
+
+.slider-cosmic [data-radix-slider-thumb] {
+  background: #FF007F;
+  border: 2px solid #FFD700;
+}
+
+/* Code Block in Chat */
+.chat-code-block {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* Notification Badge */
+.notification-badge {
+  background: linear-gradient(135deg, #FF007F, #FF7A00);
+  box-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+}
+
+/* Tooltip */
+[data-radix-tooltip-content] {
+  background: rgba(11, 11, 20, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Context Menu */
+[data-radix-context-menu-content] {
+  background: rgba(11, 11, 20, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Select Dropdown */
+[data-radix-select-content] {
+  background: rgba(11, 11, 20, 0.95) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+[data-radix-select-item]:hover,
+[data-radix-select-item][data-highlighted] {
+  background: rgba(255, 0, 127, 0.2) !important;
+  outline: none;
 }
