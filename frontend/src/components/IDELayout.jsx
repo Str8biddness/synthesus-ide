@@ -32,6 +32,7 @@ import {
   Bot,
   Zap,
   Users,
+  Video,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import CodeEditor from "@/components/CodeEditor";
@@ -42,6 +43,7 @@ import MemoryPanel from "@/components/MemoryPanel";
 import BrowserPreview from "@/components/BrowserPreview";
 import AgentPanel from "@/components/AgentPanel";
 import CollaborationPanel from "@/components/CollaborationPanel";
+import VideoChat from "@/components/VideoChat";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { v4 as uuidv4 } from "uuid";
@@ -332,6 +334,7 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
   }, [activeTab, openTabs]);
 
   const activeFile = openTabs.find((tab) => tab.path === activeTab);
+  const [showVideoChat, setShowVideoChat] = useState(false);
 
   const updateFileContent = useCallback((path, newContent) => {
     setOpenTabs((prev) => prev.map((tab) => (tab.path === path ? { ...tab, content: newContent } : tab)));
@@ -360,6 +363,17 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
           <span className="text-xs text-zinc-500 uppercase tracking-widest">AI IDE Platform</span>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            data-testid="video-chat-btn"
+            variant="ghost"
+            size="icon"
+            className={`text-zinc-400 hover:text-white hover:bg-white/5 ${showVideoChat ? "text-green-500" : ""}`}
+            onClick={() => setShowVideoChat(!showVideoChat)}
+            title="Video Chat"
+            disabled={!roomId}
+          >
+            <Video className="w-5 h-5" />
+          </Button>
           <Button
             data-testid="browser-btn"
             variant="ghost"
@@ -574,6 +588,18 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
           </button>
         </div>
       </footer>
+
+      {/* Video Chat */}
+      {showVideoChat && roomId && (
+        <VideoChat
+          roomId={roomId}
+          userId={userId}
+          userName={userName}
+          userColor={userColor}
+          users={collabUsers}
+          onClose={() => setShowVideoChat(false)}
+        />
+      )}
     </div>
   );
 };

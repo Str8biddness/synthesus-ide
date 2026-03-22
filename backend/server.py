@@ -798,6 +798,89 @@ async def websocket_collaboration(websocket: WebSocket, room_id: str):
             user_id, _ = result
             await ws_manager.broadcast(room_id, {"type": "user_left", "user_id": user_id})
 
+# ===== WebRTC Signaling WebSocket =====
+class RTCConnectionManager:
+    """WebSocket manager for WebRTC signaling"""
+    def __init__(self):
+        self.rooms: Dict[str, Dict[str, WebSocket]] = {}  # room_id -> {user_id: websocket}
+    
+    async def connect(self, websocket: WebSocket, room_id: str, user_id: str):
+        await websocket.accept()
+        if room_id not in self.rooms:
+            self.rooms[room_id] = {}
+        
+        # Notify existing users
+        for uid, ws in self.rooms[room_id].items():
+            try:
+                await ws.send_json({"type": "user_joined", "from": user_id})
+            except:
+                pass
+        
+        # Add new user
+        self.rooms[room_id][user_id] = websocket
+        
+        # Send list of existing users to new user
+        existing_users = [uid for uid in self.rooms[room_id].keys() if uid != user_id]
+        await websocket.send_json({"type": "room_users", "users": existing_users})
+    
+    def disconnect(self, room_id: str, user_id: str):
+        if room_id in self.rooms and user_id in self.rooms[room_id]:
+            del self.rooms[room_id][user_id]
+            if not self.rooms[room_id]:
+                del self.rooms[room_id]
+    
+    async def send_to_user(self, room_id: str, user_id: str, message: dict):
+        if room_id in self.rooms and user_id in self.rooms[room_id]:
+            try:
+                await self.rooms[room_id][user_id].send_json(message)
+            except:
+                pass
+    
+    async def broadcast(self, room_id: str, message: dict, exclude_user: str = None):
+        if room_id in self.rooms:
+            for uid, ws in self.rooms[room_id].items():
+                if uid != exclude_user:
+                    try:
+                        await ws.send_json(message)
+                    except:
+                        pass
+
+rtc_manager = RTCConnectionManager()
+
+@app.websocket("/ws/rtc/{room_id}")
+async def websocket_rtc_signaling(websocket: WebSocket, room_id: str):
+    """WebSocket endpoint for WebRTC signaling"""
+    user_id = websocket.query_params.get("userId", str(uuid.uuid4()))
+    
+    await rtc_manager.connect(websocket, room_id, user_id)
+    
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+            target = data.get("to")
+            payload = data.get("payload")
+            
+            if msg_type in ["offer", "answer", "ice_candidate"]:
+                # Forward signaling message to specific user
+                if target:
+                    await rtc_manager.send_to_user(room_id, target, {
+                        "type": msg_type,
+                        "from": user_id,
+                        "payload": payload
+                    })
+            elif msg_type == "broadcast":
+                # Broadcast to all users in room
+                await rtc_manager.broadcast(room_id, {
+                    "type": "broadcast",
+                    "from": user_id,
+                    "payload": payload
+                }, exclude_user=user_id)
+    
+    except WebSocketDisconnect:
+        rtc_manager.disconnect(room_id, user_id)
+        await rtc_manager.broadcast(room_id, {"type": "user_left", "from": user_id})
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
