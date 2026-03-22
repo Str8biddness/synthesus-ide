@@ -7,6 +7,8 @@ Tests all backend endpoints for functionality and error handling.
 import requests
 import sys
 import json
+import asyncio
+import websockets
 from datetime import datetime
 from typing import Dict, Any, List
 
@@ -18,6 +20,7 @@ class SynthesusAPITester:
         self.tests_passed = 0
         self.failed_tests = []
         self.test_results = []
+        self.room_id = None  # For collaboration tests
 
     def log_test(self, name: str, success: bool, details: str = "", response_data: Any = None):
         """Log test result"""
@@ -597,6 +600,147 @@ class SynthesusAPITester:
         except Exception as e:
             self.log_test("Agent File Delete", False, f"Exception: {str(e)}")
 
+    # ===== Collaboration Tests =====
+    
+    def test_collaboration_create_room(self):
+        """Test creating a collaboration room"""
+        try:
+            response = requests.post(f"{self.api_url}/collab/rooms", 
+                                   params={"name": "Test Room"}, 
+                                   timeout=10)
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                if 'room_id' in data:
+                    self.room_id = data['room_id']
+                    details += f", Room ID: {self.room_id[:8]}..."
+                else:
+                    success = False
+                    details += ", Missing room_id in response"
+            
+            self.log_test("Collaboration Create Room", success, details, response.json() if success else None)
+            return success
+        except Exception as e:
+            self.log_test("Collaboration Create Room", False, f"Exception: {str(e)}")
+            return False
+
+    def test_collaboration_get_room(self):
+        """Test getting room information"""
+        if not self.room_id:
+            self.log_test("Collaboration Get Room", False, "No room ID available")
+            return False
+            
+        try:
+            response = requests.get(f"{self.api_url}/collab/rooms/{self.room_id}", timeout=10)
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                if 'room_id' in data and data['room_id'] == self.room_id:
+                    details += f", Room found with users: {len(data.get('users', []))}"
+                else:
+                    success = False
+                    details += ", Invalid room data"
+            
+            self.log_test("Collaboration Get Room", success, details, response.json() if success else None)
+            return success
+        except Exception as e:
+            self.log_test("Collaboration Get Room", False, f"Exception: {str(e)}")
+            return False
+
+    def test_collaboration_get_room_users(self):
+        """Test getting users in a room"""
+        if not self.room_id:
+            self.log_test("Collaboration Get Room Users", False, "No room ID available")
+            return False
+            
+        try:
+            response = requests.get(f"{self.api_url}/collab/rooms/{self.room_id}/users", timeout=10)
+            success = response.status_code == 200
+            details = f"Status: {response.status_code}"
+            
+            if success:
+                data = response.json()
+                if isinstance(data, list):
+                    details += f", Users count: {len(data)}"
+                else:
+                    success = False
+                    details += ", Invalid users data format"
+            
+            self.log_test("Collaboration Get Room Users", success, details, response.json() if success else None)
+            return success
+        except Exception as e:
+            self.log_test("Collaboration Get Room Users", False, f"Exception: {str(e)}")
+            return False
+
+    def test_collaboration_websocket(self):
+        """Test WebSocket connection for collaboration"""
+        if not self.room_id:
+            self.log_test("Collaboration WebSocket", False, "No room ID available")
+            return False
+
+        try:
+            # Convert HTTP URL to WebSocket URL
+            ws_url = self.base_url.replace("https://", "wss://").replace("http://", "ws://")
+            ws_endpoint = f"{ws_url}/ws/collab/{self.room_id}?userId=test_user&userName=TestUser"
+            
+            async def test_websocket():
+                try:
+                    # Use connect without timeout parameter for compatibility
+                    async with websockets.connect(ws_endpoint) as websocket:
+                        # Send a test message
+                        test_message = {
+                            "type": "cursor_update",
+                            "position": {"line": 1, "column": 1},
+                            "selection": None
+                        }
+                        await websocket.send(json.dumps(test_message))
+                        
+                        # Try to receive a response (with timeout)
+                        try:
+                            response = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                            return True, f"Connected and received: {response[:50]}..."
+                        except asyncio.TimeoutError:
+                            return True, "Connected successfully (no immediate response)"
+                            
+                except websockets.exceptions.ConnectionClosed:
+                    return False, "WebSocket connection closed unexpectedly"
+                except Exception as e:
+                    return False, f"WebSocket error: {str(e)}"
+            
+            # Run the async test
+            success, details = asyncio.run(test_websocket())
+            self.log_test("Collaboration WebSocket", success, details)
+            return success
+            
+        except Exception as e:
+            self.log_test("Collaboration WebSocket", False, f"Exception: {str(e)}")
+            return False
+
+    def test_collaboration_invalid_room(self):
+        """Test accessing non-existent room"""
+        try:
+            response = requests.get(f"{self.api_url}/collab/rooms/invalid-room-id", timeout=10)
+            success = response.status_code == 404
+            details = f"Status: {response.status_code} (expected 404)"
+            
+            self.log_test("Collaboration Invalid Room", success, details)
+            return success
+        except Exception as e:
+            self.log_test("Collaboration Invalid Room", False, f"Exception: {str(e)}")
+            return False
+
+    def test_collaboration_endpoints(self):
+        """Test all collaboration endpoints"""
+        self.test_collaboration_create_room()
+        self.test_collaboration_get_room()
+        self.test_collaboration_get_room_users()
+        self.test_collaboration_websocket()
+        self.test_collaboration_invalid_room()
+
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting SYNTHESUS AI IDE Backend Tests")
@@ -633,6 +777,10 @@ class SynthesusAPITester:
         # Agent/Autonomy tests
         print("\n🤖 Agent/Autonomy Tests")
         self.test_agent_endpoints()
+        
+        # Collaboration tests
+        print("\n🤝 Collaboration Tests")
+        self.test_collaboration_endpoints()
         
         # Print summary
         print("\n" + "=" * 60)

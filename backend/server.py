@@ -698,6 +698,65 @@ async def toggle_plugin(plugin_id: str):
     plugin["enabled"] = new_status
     return Plugin(**plugin)
 
+# ===== Collaboration WebSocket and REST endpoints =====
+from collaboration import collab_manager
+
+class ConnectionManager:
+    """WebSocket connection manager for collaboration"""
+    def __init__(self):
+        self.active_connections: Dict[str, List[WebSocket]] = {}
+    
+    async def connect(self, websocket: WebSocket, room_id: str, user_id: str, user_name: str):
+        await websocket.accept()
+        if room_id not in self.active_connections:
+            self.active_connections[room_id] = []
+        self.active_connections[room_id].append(websocket)
+        user = collab_manager.join_room(room_id, user_id, user_name, websocket)
+        await self.broadcast(room_id, {
+            "type": "user_joined",
+            "user": {"id": user.id, "name": user.name, "color": user.color}
+        }, exclude=websocket)
+        users = collab_manager.get_room_users(room_id)
+        await websocket.send_json({"type": "room_state", "users": users, "room_id": room_id})
+        return user
+    
+    def disconnect(self, websocket: WebSocket, room_id: str):
+        if room_id in self.active_connections:
+            if websocket in self.active_connections[room_id]:
+                self.active_connections[room_id].remove(websocket)
+        return collab_manager.leave_room(websocket)
+    
+    async def broadcast(self, room_id: str, message: dict, exclude: WebSocket = None):
+        if room_id in self.active_connections:
+            for connection in self.active_connections[room_id]:
+                if connection != exclude:
+                    try:
+                        await connection.send_json(message)
+                    except:
+                        pass
+
+ws_manager = ConnectionManager()
+
+@api_router.post("/collab/rooms")
+async def create_room(name: str = ""):
+    """Create a new collaboration room"""
+    room_id = str(uuid.uuid4())
+    room = collab_manager.create_room(room_id, name)
+    return {"room_id": room.id, "name": room.name, "created_at": room.created_at}
+
+@api_router.get("/collab/rooms/{room_id}")
+async def get_room(room_id: str):
+    """Get room info"""
+    room = collab_manager.get_room(room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    return {"room_id": room.id, "name": room.name, "users": collab_manager.get_room_users(room_id), "created_at": room.created_at}
+
+@api_router.get("/collab/rooms/{room_id}/users")
+async def get_room_users_endpoint(room_id: str):
+    """Get users in a room"""
+    return collab_manager.get_room_users(room_id)
+
 # Include router and middleware
 app.include_router(api_router)
 
@@ -708,6 +767,36 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# WebSocket endpoint (added directly to app, not router)
+@app.websocket("/ws/collab/{room_id}")
+async def websocket_collaboration(websocket: WebSocket, room_id: str):
+    """WebSocket endpoint for real-time collaboration"""
+    user_id = websocket.query_params.get("userId", str(uuid.uuid4()))
+    user_name = websocket.query_params.get("userName", "Anonymous")
+    user = await ws_manager.connect(websocket, room_id, user_id, user_name)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            msg_type = data.get("type")
+            if msg_type == "cursor_update":
+                collab_manager.update_cursor(room_id, user_id, data.get("position"), data.get("selection"))
+                await ws_manager.broadcast(room_id, {
+                    "type": "cursor_update", "user_id": user_id, "user_name": user.name,
+                    "user_color": user.color, "position": data.get("position"), "selection": data.get("selection")
+                }, exclude=websocket)
+            elif msg_type == "document_update":
+                await ws_manager.broadcast(room_id, {"type": "document_update", "user_id": user_id, "changes": data.get("changes")}, exclude=websocket)
+            elif msg_type == "chat_message":
+                await ws_manager.broadcast(room_id, {
+                    "type": "chat_message", "user_id": user_id, "user_name": user.name,
+                    "user_color": user.color, "message": data.get("message"), "timestamp": datetime.now(timezone.utc).isoformat()
+                })
+    except WebSocketDisconnect:
+        result = ws_manager.disconnect(websocket, room_id)
+        if result:
+            user_id, _ = result
+            await ws_manager.broadcast(room_id, {"type": "user_left", "user_id": user_id})
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

@@ -31,6 +31,7 @@ import {
   Globe,
   Bot,
   Zap,
+  Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import CodeEditor from "@/components/CodeEditor";
@@ -40,7 +41,10 @@ import ModelSelector from "@/components/ModelSelector";
 import MemoryPanel from "@/components/MemoryPanel";
 import BrowserPreview from "@/components/BrowserPreview";
 import AgentPanel from "@/components/AgentPanel";
+import CollaborationPanel from "@/components/CollaborationPanel";
 import { useAIConfig } from "@/hooks/useAIConfig";
+import { useCollaboration } from "@/hooks/useCollaboration";
+import { v4 as uuidv4 } from "uuid";
 
 // Flat file structure for simpler rendering
 const FLAT_FILES = [
@@ -257,7 +261,35 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
   const [activeRightPanel, setActiveRightPanel] = useState("chat");
   const [activeLeftPanel, setActiveLeftPanel] = useState("explorer");
   const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [roomId, setRoomId] = useState(() => {
+    // Check URL for room param
+    const params = new URLSearchParams(window.location.search);
+    return params.get("room") || null;
+  });
   const { config, updateConfig } = useAIConfig();
+  
+  // Collaboration hook
+  const {
+    isConnected: collabConnected,
+    users: collabUsers,
+    userId,
+    userName,
+    userColor,
+    setUserName,
+    updateCursor,
+  } = useCollaboration(roomId, !!roomId);
+
+  const handleCreateRoom = useCallback(() => {
+    const newRoomId = uuidv4();
+    setRoomId(newRoomId);
+    // Update URL
+    window.history.pushState({}, "", `?room=${newRoomId}`);
+  }, []);
+
+  const handleJoinRoom = useCallback((id) => {
+    setRoomId(id);
+    window.history.pushState({}, "", `?room=${id}`);
+  }, []);
 
   const toggleFolder = useCallback((path) => {
     setExpandedFolders((prev) => {
@@ -356,13 +388,17 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
             <div className="h-full flex flex-col bg-[#0B0B14]/60 border-r border-white/10">
               <Tabs value={activeLeftPanel} onValueChange={setActiveLeftPanel} className="flex-1 flex flex-col">
                 <TabsList className="w-full bg-transparent border-b border-white/10 rounded-none h-auto p-0">
-                  <TabsTrigger data-testid="explorer-tab" value="explorer" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-pink-500 data-[state=active]:bg-transparent data-[state=active]:text-white py-3">
-                    <Folder className="w-4 h-4 mr-1" />
-                    <span className="text-[10px] uppercase tracking-wider">Explorer</span>
+                  <TabsTrigger data-testid="explorer-tab" value="explorer" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-pink-500 data-[state=active]:bg-transparent data-[state=active]:text-white py-2">
+                    <Folder className="w-4 h-4" />
                   </TabsTrigger>
-                  <TabsTrigger data-testid="memory-tab" value="memory" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-pink-500 data-[state=active]:bg-transparent data-[state=active]:text-white py-3">
-                    <Library className="w-4 h-4 mr-1" />
-                    <span className="text-[10px] uppercase tracking-wider">Memory</span>
+                  <TabsTrigger data-testid="memory-tab" value="memory" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-pink-500 data-[state=active]:bg-transparent data-[state=active]:text-white py-2">
+                    <Library className="w-4 h-4" />
+                  </TabsTrigger>
+                  <TabsTrigger data-testid="collab-tab" value="collab" className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-pink-500 data-[state=active]:bg-transparent data-[state=active]:text-white py-2 relative">
+                    <Users className="w-4 h-4" />
+                    {collabConnected && (
+                      <span className="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full" />
+                    )}
                   </TabsTrigger>
                 </TabsList>
 
@@ -396,6 +432,19 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
 
                 <TabsContent value="memory" className="flex-1 m-0 overflow-hidden">
                   <MemoryPanel onSelectConversation={handleSelectConversation} currentConversationId={currentConversationId} />
+                </TabsContent>
+
+                <TabsContent value="collab" className="flex-1 m-0 overflow-hidden">
+                  <CollaborationPanel
+                    isConnected={collabConnected}
+                    users={collabUsers}
+                    roomId={roomId}
+                    userName={userName}
+                    userColor={userColor}
+                    onSetUserName={setUserName}
+                    onCreateRoom={handleCreateRoom}
+                    onJoinRoom={handleJoinRoom}
+                  />
                 </TabsContent>
               </Tabs>
             </div>
