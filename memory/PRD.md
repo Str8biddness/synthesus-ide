@@ -1,80 +1,66 @@
-# SYNTHESUS AI IDE Platform - PRD v2.0
+# SYNTHESUS AI IDE Platform - PRD v3.0
 
 ## Original Problem Statement
-Build an AI IDE platform that focuses on local AI plugins via LM Studio or Ollama abstraction layer, with memory like Perplexity, autonomy like Replit, and browser preview with anti-gravity physics.
+Build an AI IDE platform with local AI plugins (LM Studio/Ollama), memory like Perplexity, autonomy like Replit, browser preview with anti-gravity physics, and real-time collaboration.
 
 ## Architecture
-- **Frontend**: React 19, Monaco Editor, react-resizable-panels, framer-motion, tsparticles
-- **Backend**: FastAPI with LM Studio/Ollama abstraction layer + Agent capabilities
-- **Database**: MongoDB for settings, plugins, conversations, collections
-
-## User Personas
-- Developers wanting local AI models for code assistance
-- Privacy-conscious developers avoiding cloud AI dependencies
-- Power users needing code execution and file management in IDE
-
-## Core Requirements (Static)
-1. Code editor with syntax highlighting ✅
-2. AI-powered code completion/suggestions ✅
-3. AI chat assistant panel ✅
-4. File explorer/project management ✅
-5. Terminal integration ✅
-6. Model management (view, select, configure) ✅
-7. Plugin system ✅
-8. Memory/Library for conversations ✅
-9. Agent autonomy (code execution) ✅
-10. Browser preview with physics ✅
+- **Frontend**: React 19, Monaco Editor, Y.js, WebSocket, Matter.js
+- **Backend**: FastAPI, WebSockets, LM Studio/Ollama abstraction
+- **Database**: MongoDB for settings, plugins, conversations, collections, rooms
 
 ## What's Been Implemented
 
-### Phase 1 (2026-03-22)
-- Full IDE layout with resizable panels
+### Phase 1 - Core IDE
 - Monaco code editor with SYNTHESUS dark theme
 - File explorer with folder expand/collapse
-- AI Chat panel
-- Terminal emulator with command history
-- Model selector (Ollama/LM Studio switch)
+- AI Chat panel with context awareness
+- Terminal emulator
+- Model selector (Ollama/LM Studio)
 - Settings and Plugins modals
-- Backend abstraction layer for Ollama/LM Studio
 
-### Phase 2 (2026-03-22) - NEW
-- **Memory System**: Collections and conversation history like Perplexity
-  - Create/delete collections
-  - Conversation persistence with timestamps
-  - Search through conversation history
-  - Context injection from previous chats
-  
-- **Agent Autonomy**: Code execution like Replit
-  - Python code execution
-  - JavaScript/Node.js execution
-  - Shell command execution
-  - File operations (create, read, update, delete, list)
-  - Package installation (npm, pip, yarn)
-  - Real terminal with command history
-  
-- **Browser Preview**: Live preview with physics
-  - Embedded iframe for HTML preview
-  - Anti-gravity mode with Matter.js physics
-  - Elements float and interact with mouse
-  - Real-time code preview
+### Phase 2 - Memory & Agent
+- Collections and conversation history
+- Code execution (Python/JS/Shell)
+- File operations (CRUD)
+- Package installation
+- Real terminal commands
 
-## Prioritized Backlog
-### P0 (Critical) - All Complete ✅
+### Phase 3 - Collaboration (NEW)
+- Room creation and joining
+- User profiles with avatars
+- Active users list
+- Shareable room links
+- WebSocket-based real-time sync (requires proper WS proxy)
 
-### P1 (Important)
-- WebSocket streaming for AI responses
-- Real-time code completion inline
-- Git integration
-- Multi-file project execution
+### Browser Preview
+- Live HTML/CSS/JS preview
+- Matter.js anti-gravity physics mode
 
-### P2 (Nice to have)
-- Multiple project support
-- Collaborative editing
-- Custom theme editor
-- Voice input for AI chat
+## API Endpoints
+
+### Collaboration
+- `POST /api/collab/rooms` - Create room ✅
+- `GET /api/collab/rooms/{id}` - Get room info ✅
+- `GET /api/collab/rooms/{id}/users` - Get users ✅
+- `WebSocket /ws/collab/{room_id}` - Real-time sync (needs WS proxy)
+
+### Memory
+- `GET/POST /api/memory/conversations` ✅
+- `GET/POST /api/memory/collections` ✅
+- `GET /api/memory/search` ✅
+
+### Agent
+- `POST /api/agent/execute` ✅
+- `POST /api/agent/file` ✅
+- `POST /api/agent/terminal` ✅
+- `POST /api/agent/install` ✅
 
 ## Next Tasks
-1. Add inline code completion as user types
-2. Implement WebSocket for streaming responses
-3. Add git commands to agent terminal
-4. Create project templates
+1. Configure WebSocket proxy for production
+2. Add inline code completion
+3. Add git integration
+4. Add collaborative cursor sharing when WS works
+
+## Known Limitations
+- WebSocket requires proper proxy configuration in Kubernetes
+- AI features require local Ollama/LM Studio
