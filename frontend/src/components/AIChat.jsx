@@ -115,7 +115,7 @@ const ChatMessage = ({ message, isLast }) => {
   );
 };
 
-export const AIChat = ({ config, activeFile }) => {
+export const AIChat = ({ config, activeFile, conversationId }) => {
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -136,7 +136,7 @@ export const AIChat = ({ config, activeFile }) => {
   const sendMessage = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: "user", content: input.trim() };
+    const userMessage = { role: "user", content: input.trim(), timestamp: new Date().toISOString() };
     
     // Add context about current file if available
     let contextMessage = input.trim();
@@ -165,6 +165,7 @@ export const AIChat = ({ config, activeFile }) => {
           max_tokens: config.max_tokens,
           top_p: config.top_p,
         },
+        conversation_id: conversationId,
       });
 
       const assistantMessage = {

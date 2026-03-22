@@ -287,34 +287,72 @@ class SynthesusAPITester:
         except Exception as e:
             self.log_test("Plugins List", False, f"Exception: {str(e)}")
 
-    def test_conversations_endpoints(self):
-        """Test conversation endpoints"""
+    def test_memory_endpoints(self):
+        """Test memory system endpoints"""
         conversation_id = None
+        collection_id = None
+        
+        # Test GET collections
+        try:
+            response = requests.get(f"{self.api_url}/memory/collections", timeout=10)
+            success = response.status_code == 200
+            details = f"GET Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Collections found: {len(data)}"
+            self.log_test("Memory Collections List", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Memory Collections List", False, f"Exception: {str(e)}")
+        
+        # Test POST collection
+        try:
+            collection_data = {
+                "name": "Test Collection",
+                "description": "Test collection for API testing",
+                "icon": "folder",
+                "color": "#FF007F"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/memory/collections",
+                json=collection_data,
+                timeout=10
+            )
+            success = response.status_code == 200
+            details = f"POST Status: {response.status_code}"
+            if success:
+                data = response.json()
+                collection_id = data.get('id')
+                details += f", Created collection: {collection_id}"
+            self.log_test("Memory Collection Create", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Memory Collection Create", False, f"Exception: {str(e)}")
         
         # Test GET conversations
         try:
-            response = requests.get(f"{self.api_url}/conversations", timeout=10)
+            response = requests.get(f"{self.api_url}/memory/conversations", timeout=10)
             success = response.status_code == 200
             details = f"GET Status: {response.status_code}"
             if success:
                 data = response.json()
                 details += f", Conversations found: {len(data)}"
-            self.log_test("Conversations List", success, details, response.json() if success else None)
+            self.log_test("Memory Conversations List", success, details, response.json() if success else None)
         except Exception as e:
-            self.log_test("Conversations List", False, f"Exception: {str(e)}")
+            self.log_test("Memory Conversations List", False, f"Exception: {str(e)}")
         
         # Test POST conversation
         try:
             conversation_data = {
-                "title": "Test Conversation",
+                "title": "Test Memory Conversation",
                 "messages": [
                     {"role": "user", "content": "Hello"},
                     {"role": "assistant", "content": "Hi there!"}
-                ]
+                ],
+                "collection_id": collection_id
             }
             
             response = requests.post(
-                f"{self.api_url}/conversations",
+                f"{self.api_url}/memory/conversations",
                 json=conversation_data,
                 timeout=10
             )
@@ -324,42 +362,240 @@ class SynthesusAPITester:
                 data = response.json()
                 conversation_id = data.get('id')
                 details += f", Created conversation: {conversation_id}"
-            self.log_test("Conversation Create", success, details, response.json() if success else None)
+            self.log_test("Memory Conversation Create", success, details, response.json() if success else None)
         except Exception as e:
-            self.log_test("Conversation Create", False, f"Exception: {str(e)}")
+            self.log_test("Memory Conversation Create", False, f"Exception: {str(e)}")
         
-        # Test PUT conversation (update)
+        # Test GET specific conversation
         if conversation_id:
             try:
-                updated_data = {
-                    "id": conversation_id,
-                    "title": "Updated Test Conversation",
-                    "messages": [
-                        {"role": "user", "content": "Hello"},
-                        {"role": "assistant", "content": "Hi there!"},
-                        {"role": "user", "content": "How are you?"}
-                    ]
-                }
-                
-                response = requests.put(
-                    f"{self.api_url}/conversations/{conversation_id}",
-                    json=updated_data,
-                    timeout=10
-                )
+                response = requests.get(f"{self.api_url}/memory/conversations/{conversation_id}", timeout=10)
                 success = response.status_code == 200
-                details = f"PUT Status: {response.status_code}"
-                self.log_test("Conversation Update", success, details, response.json() if success else None)
+                details = f"GET Status: {response.status_code}"
+                if success:
+                    data = response.json()
+                    details += f", Messages: {len(data.get('messages', []))}"
+                self.log_test("Memory Conversation Get", success, details, response.json() if success else None)
             except Exception as e:
-                self.log_test("Conversation Update", False, f"Exception: {str(e)}")
-            
-            # Test DELETE conversation
+                self.log_test("Memory Conversation Get", False, f"Exception: {str(e)}")
+        
+        # Test conversation search
+        try:
+            response = requests.get(f"{self.api_url}/memory/search", params={"query": "test"}, timeout=10)
+            success = response.status_code == 200
+            details = f"Search Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Results: {len(data)}"
+            self.log_test("Memory Search", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Memory Search", False, f"Exception: {str(e)}")
+        
+        # Cleanup - Delete conversation and collection
+        if conversation_id:
             try:
-                response = requests.delete(f"{self.api_url}/conversations/{conversation_id}", timeout=10)
+                response = requests.delete(f"{self.api_url}/memory/conversations/{conversation_id}", timeout=10)
                 success = response.status_code == 200
                 details = f"DELETE Status: {response.status_code}"
-                self.log_test("Conversation Delete", success, details, response.json() if success else None)
+                self.log_test("Memory Conversation Delete", success, details, response.json() if success else None)
             except Exception as e:
-                self.log_test("Conversation Delete", False, f"Exception: {str(e)}")
+                self.log_test("Memory Conversation Delete", False, f"Exception: {str(e)}")
+        
+        if collection_id:
+            try:
+                response = requests.delete(f"{self.api_url}/memory/collections/{collection_id}", timeout=10)
+                success = response.status_code == 200
+                details = f"DELETE Status: {response.status_code}"
+                self.log_test("Memory Collection Delete", success, details, response.json() if success else None)
+            except Exception as e:
+                self.log_test("Memory Collection Delete", False, f"Exception: {str(e)}")
+
+    def test_agent_endpoints(self):
+        """Test agent/autonomy endpoints"""
+        
+        # Test code execution - JavaScript
+        try:
+            code_request = {
+                "code": "console.log('Hello from JavaScript!'); console.log(2 + 2);",
+                "language": "javascript",
+                "timeout": 10
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/execute",
+                json=code_request,
+                timeout=15
+            )
+            success = response.status_code == 200
+            details = f"JS Execution Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}, Output: {data.get('output', 'N/A')[:50]}"
+            self.log_test("Agent Code Execution (JavaScript)", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent Code Execution (JavaScript)", False, f"Exception: {str(e)}")
+        
+        # Test code execution - Python
+        try:
+            code_request = {
+                "code": "print('Hello from Python!')\nprint(2 + 2)",
+                "language": "python",
+                "timeout": 10
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/execute",
+                json=code_request,
+                timeout=15
+            )
+            success = response.status_code == 200
+            details = f"Python Execution Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}, Output: {data.get('output', 'N/A')[:50]}"
+            self.log_test("Agent Code Execution (Python)", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent Code Execution (Python)", False, f"Exception: {str(e)}")
+        
+        # Test code execution - Shell
+        try:
+            code_request = {
+                "code": "echo 'Hello from Shell!' && ls -la",
+                "language": "shell",
+                "timeout": 10
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/execute",
+                json=code_request,
+                timeout=15
+            )
+            success = response.status_code == 200
+            details = f"Shell Execution Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}, Output: {data.get('output', 'N/A')[:50]}"
+            self.log_test("Agent Code Execution (Shell)", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent Code Execution (Shell)", False, f"Exception: {str(e)}")
+        
+        # Test file operations - Create
+        try:
+            file_request = {
+                "operation": "create",
+                "path": "/test_file.txt",
+                "content": "Hello from SYNTHESUS test!"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/file",
+                json=file_request,
+                timeout=10
+            )
+            success = response.status_code == 200
+            details = f"File Create Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}"
+            self.log_test("Agent File Create", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent File Create", False, f"Exception: {str(e)}")
+        
+        # Test file operations - Read
+        try:
+            file_request = {
+                "operation": "read",
+                "path": "/test_file.txt"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/file",
+                json=file_request,
+                timeout=10
+            )
+            success = response.status_code == 200
+            details = f"File Read Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}, Content: {data.get('data', {}).get('content', 'N/A')[:30]}"
+            self.log_test("Agent File Read", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent File Read", False, f"Exception: {str(e)}")
+        
+        # Test file operations - List
+        try:
+            file_request = {
+                "operation": "list",
+                "path": "/"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/file",
+                json=file_request,
+                timeout=10
+            )
+            success = response.status_code == 200
+            details = f"File List Status: {response.status_code}"
+            if success:
+                data = response.json()
+                files = data.get('data', [])
+                details += f", Success: {data.get('success', False)}, Files: {len(files)}"
+            self.log_test("Agent File List", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent File List", False, f"Exception: {str(e)}")
+        
+        # Test terminal command
+        try:
+            terminal_request = {
+                "command": "echo 'Hello from terminal!' && pwd"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/terminal",
+                json=terminal_request,
+                timeout=15
+            )
+            success = response.status_code == 200
+            details = f"Terminal Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}, Output: {data.get('stdout', 'N/A')[:50]}"
+            self.log_test("Agent Terminal Command", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent Terminal Command", False, f"Exception: {str(e)}")
+        
+        # Test workspace info
+        try:
+            response = requests.get(f"{self.api_url}/agent/workspace", timeout=10)
+            success = response.status_code == 200
+            details = f"Workspace Info Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Path: {data.get('path', 'N/A')}, Exists: {data.get('exists', False)}"
+            self.log_test("Agent Workspace Info", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent Workspace Info", False, f"Exception: {str(e)}")
+        
+        # Cleanup - Delete test file
+        try:
+            file_request = {
+                "operation": "delete",
+                "path": "/test_file.txt"
+            }
+            
+            response = requests.post(
+                f"{self.api_url}/agent/file",
+                json=file_request,
+                timeout=10
+            )
+            success = response.status_code == 200
+            details = f"File Delete Status: {response.status_code}"
+            if success:
+                data = response.json()
+                details += f", Success: {data.get('success', False)}"
+            self.log_test("Agent File Delete", success, details, response.json() if success else None)
+        except Exception as e:
+            self.log_test("Agent File Delete", False, f"Exception: {str(e)}")
 
     def run_all_tests(self):
         """Run all backend tests"""
@@ -390,9 +626,13 @@ class SynthesusAPITester:
         print("\n🧩 Plugins Tests")
         self.test_plugins_endpoints()
         
-        # Conversations tests
-        print("\n💭 Conversations Tests")
-        self.test_conversations_endpoints()
+        # Memory system tests
+        print("\n🧠 Memory System Tests")
+        self.test_memory_endpoints()
+        
+        # Agent/Autonomy tests
+        print("\n🤖 Agent/Autonomy Tests")
+        self.test_agent_endpoints()
         
         # Print summary
         print("\n" + "=" * 60)
