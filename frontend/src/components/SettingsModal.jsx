@@ -21,10 +21,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Cpu, Palette, Code, Keyboard, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
+import { apiClient } from "@/lib/api";
 import { useAIConfig } from "@/hooks/useAIConfig";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export const SettingsModal = ({ open, onOpenChange }) => {
   const { config, updateConfig } = useAIConfig();
@@ -48,15 +46,13 @@ export const SettingsModal = ({ open, onOpenChange }) => {
 
   const loadSettings = async () => {
     try {
-      const response = await axios.get(`${API}/settings`);
+      const response = await apiClient.get("/settings");
       if (response.data) {
         setSettings((prev) => ({
           ...prev,
           ...response.data,
+          ai_config: undefined,
         }));
-        if (response.data.ai_config) {
-          updateConfig(response.data.ai_config);
-        }
       }
     } catch (error) {
       console.error("Failed to load settings:", error);
@@ -66,7 +62,7 @@ export const SettingsModal = ({ open, onOpenChange }) => {
   const saveSettings = async () => {
     setIsSaving(true);
     try {
-      await axios.post(`${API}/settings`, {
+      await apiClient.post("/settings", {
         ...settings,
         ai_config: config,
       });

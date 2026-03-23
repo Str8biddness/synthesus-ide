@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: synthesus-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS:-changeme}
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - synthesus-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: synthesus-backend
+    restart: unless-stopped
+    environment:
+      MONGO_URL: ${MONGO_URL:-mongodb://mongodb:27017}
+      DB_NAME: ${DB_NAME:-synthesus_ide}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
+      WORKSPACE_DIR: /app/workspace
+      MAX_EXECUTION_TIMEOUT: ${MAX_EXECUTION_TIMEOUT:-60}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PORT: 8000
+      HOST: 0.0.0.0
+    volumes:
+      - workspace_data:/app/workspace
+    ports:
+      - "8000:8000"
+    networks:
+      - synthesus-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-http://localhost:8000}
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL:-ws://localhost:8000}
+    container_name: synthesus-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - synthesus-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Optional: AI Backend with Ollama
+  # Uncomment if you want local AI included in the stack
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: synthesus-ollama
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+  #   networks:
+  #     - synthesus-network
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+volumes:
+  mongodb_data:
+  workspace_data:
+  # ollama_data:
+
+networks:
+  synthesus-network:
+    driver: bridge

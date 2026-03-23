@@ -19,9 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, Settings2, Loader2, CheckCircle, XCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { apiClient } from "@/lib/api";
 
 export const ModelSelector = ({ config, updateConfig }) => {
   const [models, setModels] = useState([]);
@@ -31,7 +29,7 @@ export const ModelSelector = ({ config, updateConfig }) => {
   const fetchModels = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API}/models/test-connection`, {
+      const response = await apiClient.post("/models/test-connection", {
         backend_type: config.backend_type,
         base_url: config.base_url,
       });

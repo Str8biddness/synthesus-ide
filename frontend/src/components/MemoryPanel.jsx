@@ -30,9 +30,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import axios from "axios";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { apiClient } from "@/lib/api";
 
 export const MemoryPanel = ({ onSelectConversation, currentConversationId }) => {
   const [conversations, setConversations] = useState([]);
@@ -47,10 +45,10 @@ export const MemoryPanel = ({ onSelectConversation, currentConversationId }) => 
     setIsLoading(true);
     try {
       const [convRes, collRes] = await Promise.all([
-        axios.get(`${API}/memory/conversations`, {
+        apiClient.get("/memory/conversations", {
           params: selectedCollection ? { collection_id: selectedCollection } : {}
         }),
-        axios.get(`${API}/memory/collections`)
+        apiClient.get("/memory/collections")
       ]);
       setConversations(convRes.data);
       setCollections(collRes.data);
@@ -71,7 +69,7 @@ export const MemoryPanel = ({ onSelectConversation, currentConversationId }) => 
       return;
     }
     try {
-      const response = await axios.get(`${API}/memory/search`, {
+      const response = await apiClient.get("/memory/search", {
         params: { query: searchQuery }
       });
       setConversations(response.data);
@@ -83,7 +81,7 @@ export const MemoryPanel = ({ onSelectConversation, currentConversationId }) => 
   const createCollection = async () => {
     if (!newCollectionName.trim()) return;
     try {
-      await axios.post(`${API}/memory/collections`, {
+      await apiClient.post("/memory/collections", {
         name: newCollectionName,
         description: "",
         icon: "folder",
@@ -100,7 +98,7 @@ export const MemoryPanel = ({ onSelectConversation, currentConversationId }) => 
 
   const deleteConversation = async (id) => {
     try {
-      await axios.delete(`${API}/memory/conversations/${id}`);
+      await apiClient.delete(`/memory/conversations/${id}`);
       loadData();
       toast.success("Conversation deleted");
     } catch (error) {
@@ -110,7 +108,7 @@ export const MemoryPanel = ({ onSelectConversation, currentConversationId }) => 
 
   const deleteCollection = async (id) => {
     try {
-      await axios.delete(`${API}/memory/collections/${id}`);
+      await apiClient.delete(`/memory/collections/${id}`);
       if (selectedCollection === id) setSelectedCollection(null);
       loadData();
       toast.success("Collection deleted");

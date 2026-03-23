@@ -24,7 +24,8 @@ export const useWebRTC = (roomId, userId, onRemoteStream, onUserJoined, onUserLe
     const backendUrl = process.env.REACT_APP_BACKEND_URL || "";
     const wsProtocol = backendUrl.startsWith("https") ? "wss" : "ws";
     const wsHost = backendUrl.replace(/^https?:\/\//, "").replace(/\/api$/, "");
-    const wsUrl = `${wsProtocol}://${wsHost}/ws/rtc/${roomId}?userId=${userId}`;
+    const token = localStorage.getItem("token");
+    const wsUrl = `${wsProtocol}://${wsHost}/ws/rtc/${roomId}?userId=${userId}&token=${token || ""}`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

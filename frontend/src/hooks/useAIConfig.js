@@ -12,6 +12,24 @@ const DEFAULT_CONFIG = {
   top_p: 0.9,
 };
 
+// Create axios instance with auth header
+const createAxiosInstance = () => {
+  const instance = axios.create();
+  
+  instance.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    },
+    (error) => Promise.reject(error)
+  );
+  
+  return instance;
+};
+
 export const useAIConfig = () => {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,7 +40,8 @@ export const useAIConfig = () => {
 
   const loadConfig = async () => {
     try {
-      const response = await axios.get(`${API}/settings`);
+      const axiosInstance = createAxiosInstance();
+      const response = await axiosInstance.get(`${API}/settings`);
       if (response.data?.ai_config) {
         setConfig((prev) => ({
           ...prev,
@@ -45,7 +64,8 @@ export const useAIConfig = () => {
 
   const saveConfig = useCallback(async () => {
     try {
-      await axios.post(`${API}/settings`, {
+      const axiosInstance = createAxiosInstance();
+      await axiosInstance.post(`${API}/settings`, {
         ai_config: config,
       });
     } catch (error) {

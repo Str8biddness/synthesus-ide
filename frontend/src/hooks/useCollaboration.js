@@ -49,11 +49,13 @@ export const useCollaboration = (roomId, enabled = true) => {
     const wsUrl = `${wsProtocol}://${wsHost}/ws/collab`;
 
     // Create WebSocket provider
+    const token = localStorage.getItem("token");
     const provider = new WebsocketProvider(wsUrl, roomId, doc, {
       connect: true,
       params: {
         userId: userId.current,
         userName: userName.current,
+        token: token || "",
       },
     });
     providerRef.current = provider;

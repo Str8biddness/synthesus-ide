@@ -21,9 +21,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import axios from "axios";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { apiClient } from "@/lib/api";
 
 const PLUGIN_ICONS = {
   sparkles: Sparkles,
@@ -57,7 +55,7 @@ export const PluginsModal = ({ open, onOpenChange }) => {
   const loadPlugins = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`${API}/plugins`);
+      const response = await apiClient.get("/plugins");
       setPlugins(response.data);
     } catch (error) {
       toast.error("Failed to load plugins");
@@ -69,7 +67,7 @@ export const PluginsModal = ({ open, onOpenChange }) => {
   const togglePlugin = async (pluginId) => {
     setTogglingPlugin(pluginId);
     try {
-      const response = await axios.post(`${API}/plugins/${pluginId}/toggle`);
+      const response = await apiClient.post(`/plugins/${pluginId}/toggle`);
       setPlugins((prev) =>
         prev.map((p) => (p.id === pluginId ? response.data : p))
       );

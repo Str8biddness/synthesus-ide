@@ -1,5 +1,6 @@
-from fastapi import FastAPI, APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Request, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -18,6 +19,29 @@ import json
 import tempfile
 import shutil
 
+# Import authentication, security, and logging modules
+from auth import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+    decode_token,
+    get_current_user,
+    get_current_user_optional,
+    security_headers_middleware,
+    validate_websocket_token,
+    rate_limiter, validate_request_size
+)
+from security import SandboxedExecutor, CodeSecurityScanner, ExecutionConfig
+from logging_config import setup_logging
+from ssl_config import get_ssl_context, SSL_ENABLED, generate_self_signed_cert, SSL_CERT_PATH, SSL_KEY_PATH
+
+# Setup logging
+ENV = os.environ.get("ENV", "development")
+setup_logging(ENV)
+
+# Initialize sandboxed executor
+sandbox_executor = SandboxedExecutor()
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -30,13 +54,16 @@ db = client[os.environ['DB_NAME']]
 app = FastAPI(title="SYNTHESUS AI IDE Platform")
 api_router = APIRouter(prefix="/api")
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Get logger
 logger = logging.getLogger(__name__)
 
-# Workspace directory for user projects
-WORKSPACE_DIR = Path("/tmp/synthesus_workspace")
-WORKSPACE_DIR.mkdir(exist_ok=True)
+# Load workspace dir from env with fallback
+WORKSPACE_DIR = Path(os.environ.get('WORKSPACE_DIR', '/tmp/synthesus_workspace'))
+WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Load execution timeout from env
+MAX_EXECUTION_TIMEOUT = int(os.environ.get('MAX_EXECUTION_TIMEOUT', '60'))
+MAX_OUTPUT_SIZE_MB = int(os.environ.get('MAX_OUTPUT_SIZE_MB', '10'))
 
 # ===== Models =====
 
@@ -195,6 +222,134 @@ class TerminalResponse(BaseModel):
 class PackageInstallRequest(BaseModel):
     packages: List[str]
     package_manager: str = "npm"  # "npm", "pip", "yarn"
+
+# User/Auth Models
+class UserCreate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    username: str = Field(..., min_length=3, max_length=50)
+    email: str = Field(..., pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+    password: str = Field(..., min_length=8)
+
+class UserLogin(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    username: str
+    email: str
+    is_admin: bool = False
+    created_at: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+# ===== Authentication APIs =====
+
+@api_router.post("/auth/register", response_model=TokenResponse)
+async def register(user_data: UserCreate):
+    """Register a new user"""
+    from auth import get_password_hash, create_access_token
+    
+    # Check if user exists
+    existing_user = await db.users.find_one({
+        "$or": [
+            {"email": user_data.email},
+            {"username": user_data.username}
+        ]
+    })
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="User with this email or username already exists"
+        )
+    
+    # Create user
+    user_id = str(uuid.uuid4())
+    user_dict = {
+        "id": user_id,
+        "username": user_data.username,
+        "email": user_data.email,
+        "hashed_password": get_password_hash(user_data.password),
+        "is_admin": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.users.insert_one(user_dict)
+    
+    # Generate token
+    access_token = create_access_token(data={"sub": user_id, "email": user_data.email})
+    
+    return TokenResponse(
+        access_token=access_token,
+        user=UserResponse(
+            id=user_id,
+            username=user_data.username,
+            email=user_data.email,
+            is_admin=False,
+            created_at=user_dict["created_at"]
+        )
+    )
+
+@api_router.post("/auth/login", response_model=TokenResponse)
+async def login(credentials: UserLogin):
+    """Login user"""
+    from auth import verify_password, create_access_token
+    
+    # Find user by email
+    user = await db.users.find_one({"email": credentials.email})
+    
+    if not user or not verify_password(credentials.password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
+    
+    # Generate token
+    access_token = create_access_token(data={
+        "sub": user["id"],
+        "email": user["email"],
+        "username": user["username"],
+        "is_admin": user.get("is_admin", False)
+    })
+    
+    return TokenResponse(
+        access_token=access_token,
+        user=UserResponse(
+            id=user["id"],
+            username=user["username"],
+            email=user["email"],
+            is_admin=user.get("is_admin", False),
+            created_at=user["created_at"]
+        )
+    )
+
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Get current authenticated user"""
+    user = await db.users.find_one({"id": current_user["user_id"]}, {"_id": 0, "hashed_password": 0})
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return UserResponse(
+        id=user["id"],
+        username=user["username"],
+        email=user["email"],
+        is_admin=user.get("is_admin", False),
+        created_at=user["created_at"]
+    )
+
+@api_router.post("/auth/logout")
+async def logout():
+    """Logout user (client-side token removal)"""
+    return {"message": "Successfully logged out"}
 
 # ===== AI Backend Abstraction Layer =====
 
@@ -355,66 +510,31 @@ async def get_conversation_context(conv_id: str, max_messages: int = 10):
 
 @api_router.post("/agent/execute", response_model=CodeExecutionResponse)
 async def execute_code(request: CodeExecutionRequest):
-    """Execute code in a sandboxed environment"""
-    import time
-    start_time = time.time()
+    """Execute code in a sandboxed environment with security restrictions"""
+    from security import ExecutionConfig
+    
+    # Create execution config from environment
+    config = ExecutionConfig(
+        max_execution_time=min(request.timeout, MAX_EXECUTION_TIMEOUT),
+        max_output_size=MAX_OUTPUT_SIZE_MB * 1024 * 1024
+    )
     
     try:
         if request.language == "python":
-            # Execute Python code
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
-                f.write(request.code)
-                f.flush()
-                result = subprocess.run(
-                    [sys.executable, f.name],
-                    capture_output=True,
-                    text=True,
-                    timeout=request.timeout,
-                    cwd=str(WORKSPACE_DIR)
-                )
-                os.unlink(f.name)
-                return CodeExecutionResponse(
-                    success=result.returncode == 0,
-                    output=result.stdout,
-                    error=result.stderr if result.stderr else None,
-                    execution_time=time.time() - start_time
-                )
+            result = sandbox_executor.execute_python(request.code, WORKSPACE_DIR)
+            return CodeExecutionResponse(**result)
         
         elif request.language == "javascript":
-            # Execute JavaScript using Node.js
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
-                f.write(request.code)
-                f.flush()
-                result = subprocess.run(
-                    ["node", f.name],
-                    capture_output=True,
-                    text=True,
-                    timeout=request.timeout,
-                    cwd=str(WORKSPACE_DIR)
-                )
-                os.unlink(f.name)
-                return CodeExecutionResponse(
-                    success=result.returncode == 0,
-                    output=result.stdout,
-                    error=result.stderr if result.stderr else None,
-                    execution_time=time.time() - start_time
-                )
+            result = sandbox_executor.execute_javascript(request.code, WORKSPACE_DIR)
+            return CodeExecutionResponse(**result)
         
         elif request.language == "shell":
-            # Execute shell commands
-            result = subprocess.run(
-                request.code,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=request.timeout,
-                cwd=str(WORKSPACE_DIR)
-            )
+            result = sandbox_executor.execute_shell(request.code, WORKSPACE_DIR)
             return CodeExecutionResponse(
-                success=result.returncode == 0,
-                output=result.stdout,
-                error=result.stderr if result.stderr else None,
-                execution_time=time.time() - start_time
+                success=result["success"],
+                output=result["stdout"],
+                error=result["stderr"] if result["stderr"] else None,
+                execution_time=0
             )
         
         else:
@@ -422,22 +542,16 @@ async def execute_code(request: CodeExecutionRequest):
                 success=False,
                 output="",
                 error=f"Unsupported language: {request.language}",
-                execution_time=time.time() - start_time
+                execution_time=0
             )
     
-    except subprocess.TimeoutExpired:
-        return CodeExecutionResponse(
-            success=False,
-            output="",
-            error=f"Execution timed out after {request.timeout} seconds",
-            execution_time=request.timeout
-        )
     except Exception as e:
+        logger.error(f"Code execution error: {e}")
         return CodeExecutionResponse(
             success=False,
             output="",
-            error=str(e),
-            execution_time=time.time() - start_time
+            error=f"Execution error: {str(e)}",
+            execution_time=0
         )
 
 @api_router.post("/agent/file", response_model=FileOperationResponse)
@@ -760,6 +874,9 @@ async def get_room_users_endpoint(room_id: str):
 # Include router and middleware
 app.include_router(api_router)
 
+# Add security headers middleware
+app.middleware("http")(security_headers_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -772,8 +889,16 @@ app.add_middleware(
 @app.websocket("/ws/collab/{room_id}")
 async def websocket_collaboration(websocket: WebSocket, room_id: str):
     """WebSocket endpoint for real-time collaboration"""
-    user_id = websocket.query_params.get("userId", str(uuid.uuid4()))
-    user_name = websocket.query_params.get("userName", "Anonymous")
+    # Validate JWT token from query params
+    token = websocket.query_params.get("token")
+    user_data = validate_websocket_token(token)
+    
+    if not user_data:
+        await websocket.close(code=1008, reason="Invalid or missing authentication token")
+        return
+    
+    user_id = user_data.get("user_id", str(uuid.uuid4()))
+    user_name = user_data.get("username", "Anonymous")
     user = await ws_manager.connect(websocket, room_id, user_id, user_name)
     try:
         while True:
@@ -850,7 +975,15 @@ rtc_manager = RTCConnectionManager()
 @app.websocket("/ws/rtc/{room_id}")
 async def websocket_rtc_signaling(websocket: WebSocket, room_id: str):
     """WebSocket endpoint for WebRTC signaling"""
-    user_id = websocket.query_params.get("userId", str(uuid.uuid4()))
+    # Validate JWT token from query params
+    token = websocket.query_params.get("token")
+    user_data = validate_websocket_token(token)
+    
+    if not user_data:
+        await websocket.close(code=1008, reason="Invalid or missing authentication token")
+        return
+    
+    user_id = user_data.get("user_id", str(uuid.uuid4()))
     
     await rtc_manager.connect(websocket, room_id, user_id)
     
@@ -884,3 +1017,47 @@ async def websocket_rtc_signaling(websocket: WebSocket, room_id: str):
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Startup event handler"""
+    print(f"🚀 Starting SYNTHESUS IDE server in {ENV} mode")
+    
+    # Generate self-signed certificates for development if SSL is enabled but certs don't exist
+    if SSL_ENABLED and not Path(SSL_CERT_PATH).exists():
+        print("🔐 Generating self-signed SSL certificates for development...")
+        generate_self_signed_cert(Path(SSL_CERT_PATH), Path(SSL_KEY_PATH))
+    
+    if SSL_ENABLED:
+        ssl_context = get_ssl_context()
+        if ssl_context:
+            print("🔒 SSL/TLS enabled - server will run with HTTPS")
+        else:
+            print("⚠️  SSL enabled but certificates not found - running with HTTP")
+    
+    print(f"📊 Database: {os.environ['DB_NAME']}")
+    print(f"🛠️  Sandbox executor initialized")
+    print("✅ Server ready!")
+
+
+# Run server with SSL if configured
+if __name__ == "__main__":
+    import uvicorn
+    
+    ssl_context = get_ssl_context() if SSL_ENABLED else None
+    
+    port = int(os.environ.get("PORT", "8000"))
+    host = os.environ.get("HOST", "0.0.0.0")
+    
+    print(f"🌐 Starting server on {host}:{port}" + (" with SSL" if ssl_context else ""))
+    
+    uvicorn.run(
+        "server:app",
+        host=host,
+        port=port,
+        reload=ENV == "development",
+        ssl_keyfile=str(Path(SSL_KEY_PATH)) if ssl_context else None,
+        ssl_certfile=str(Path(SSL_CERT_PATH)) if ssl_context else None,
+        log_level="info"
+    )

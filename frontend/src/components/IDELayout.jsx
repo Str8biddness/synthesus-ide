@@ -33,6 +33,7 @@ import {
   Zap,
   Users,
   Video,
+  User,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import CodeEditor from "@/components/CodeEditor";
@@ -46,6 +47,7 @@ import CollaborationPanel from "@/components/CollaborationPanel";
 import VideoChat from "@/components/VideoChat";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useCollaboration } from "@/hooks/useCollaboration";
+import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
 
 // Flat file structure for simpler rendering
@@ -254,6 +256,7 @@ const AIToolsPanel = ({ activeFile }) => {
 };
 
 export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
+  const { user, isAuthenticated, openAuthModal, logout } = useAuth();
   const [openTabs, setOpenTabs] = useState([]);
   const [activeTab, setActiveTab] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState(new Set(["/synthesus-project", "/synthesus-project/src"]));
@@ -391,6 +394,19 @@ export const IDELayout = ({ onOpenSettings, onOpenPlugins }) => {
           <Button data-testid="settings-btn" variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-white/5" onClick={onOpenSettings}>
             <Settings className="w-5 h-5" />
           </Button>
+          {isAuthenticated ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-zinc-400">{user?.username}</span>
+              <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white" onClick={logout}>
+                Logout
+              </Button>
+            </div>
+          ) : (
+            <Button variant="ghost" size="sm" className="text-zinc-400 hover:text-white" onClick={openAuthModal}>
+              <User className="w-5 h-5 mr-1" />
+              Login
+            </Button>
+          )}
         </div>
       </header>
 

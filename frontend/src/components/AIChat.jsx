@@ -1,12 +1,20 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Send, Loader2, Copy, Check, User, Bot, Trash2, Plus } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { apiClient } from "@/lib/api";
 import { toast } from "sonner";
-import axios from "axios";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import {
+  Send,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  User,
+  Bot,
+  Check,
+  Copy,
+  Plus,
+} from "lucide-react";
 
 const TypingIndicator = () => (
   <div className="flex items-center gap-1 p-2">
@@ -149,22 +157,10 @@ export const AIChat = ({ config, activeFile, conversationId }) => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${API}/chat`, {
-        messages: [
-          ...messages.filter(m => m.role !== "assistant" || messages.indexOf(m) > 0).map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
-          { role: "user", content: contextMessage },
-        ],
-        config: {
-          backend_type: config.backend_type,
-          base_url: config.base_url,
-          model: config.model,
-          temperature: config.temperature,
-          max_tokens: config.max_tokens,
-          top_p: config.top_p,
-        },
+      const response = await apiClient.post("/chat", {
+        message: userMessage,
+        model: config.model,
+        backend_type: config.backend_type,
         conversation_id: conversationId,
       });
 

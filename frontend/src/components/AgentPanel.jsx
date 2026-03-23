@@ -15,9 +15,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { apiClient } from "@/lib/api";
 
 export const AgentPanel = ({ onExecutionResult }) => {
   const [code, setCode] = useState("");
@@ -41,7 +39,7 @@ export const AgentPanel = ({ onExecutionResult }) => {
 
   const loadWorkspaceFiles = async () => {
     try {
-      const response = await axios.post(`${API}/agent/file`, {
+      const response = await apiClient.post("/agent/file", {
         operation: "list",
         path: "/"
       });
@@ -59,7 +57,7 @@ export const AgentPanel = ({ onExecutionResult }) => {
     setOutput("");
 
     try {
-      const response = await axios.post(`${API}/agent/execute`, {
+      const response = await apiClient.post("/agent/execute", {
         code,
         language,
         timeout: 30
@@ -96,7 +94,7 @@ export const AgentPanel = ({ onExecutionResult }) => {
     setTerminalInput("");
 
     try {
-      const response = await axios.post(`${API}/agent/terminal`, { command });
+      const response = await apiClient.post("/agent/terminal", { command });
       const result = response.data;
       
       if (result.stdout) {
@@ -115,7 +113,7 @@ export const AgentPanel = ({ onExecutionResult }) => {
 
   const createFile = async (name) => {
     try {
-      await axios.post(`${API}/agent/file`, {
+      await apiClient.post("/agent/file", {
         operation: "create",
         path: `/${name}`,
         content: ""
@@ -129,7 +127,7 @@ export const AgentPanel = ({ onExecutionResult }) => {
 
   const createFolder = async (name) => {
     try {
-      await axios.post(`${API}/agent/file`, {
+      await apiClient.post("/agent/file", {
         operation: "mkdir",
         path: `/${name}`
       });
@@ -144,7 +142,7 @@ export const AgentPanel = ({ onExecutionResult }) => {
     setTerminalHistory(prev => [...prev, { type: "input", content: `$ ${manager} install ${packages.join(" ")}` }]);
     
     try {
-      const response = await axios.post(`${API}/agent/install`, {
+      const response = await apiClient.post("/agent/install", {
         packages,
         package_manager: manager
       });

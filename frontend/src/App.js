@@ -7,6 +7,8 @@ import { loadSlim } from "@tsparticles/slim";
 import IDELayout from "@/components/IDELayout";
 import SettingsModal from "@/components/SettingsModal";
 import PluginsModal from "@/components/PluginsModal";
+import AuthModal from "@/components/AuthModal";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 function App() {
   const [init, setInit] = useState(false);
@@ -62,48 +64,51 @@ function App() {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#030308]">
-      {/* Hyperspace Background */}
-      {init && (
-        <Particles
-          id="tsparticles"
-          particlesLoaded={particlesLoaded}
-          options={particlesOptions}
-          className="absolute inset-0 -z-10"
-        />
-      )}
-      
-      {/* Main App */}
-      <BrowserRouter>
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              <IDELayout 
-                onOpenSettings={() => setShowSettings(true)}
-                onOpenPlugins={() => setShowPlugins(true)}
-              />
-            } 
+    <AuthProvider>
+      <div className="relative w-screen h-screen overflow-hidden bg-[#030308]">
+        {/* Hyperspace Background */}
+        {init && (
+          <Particles
+            id="tsparticles"
+            particlesLoaded={particlesLoaded}
+            options={particlesOptions}
+            className="absolute inset-0 -z-10"
           />
-        </Routes>
-      </BrowserRouter>
-      
-      {/* Modals */}
-      <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
-      <PluginsModal open={showPlugins} onOpenChange={setShowPlugins} />
-      
-      {/* Toast Notifications */}
-      <Toaster 
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: 'rgba(11, 11, 20, 0.95)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            color: '#fff',
-          },
-        }}
-      />
-    </div>
+        )}
+        
+        {/* Main App */}
+        <BrowserRouter>
+          <Routes>
+            <Route 
+              path="/" 
+              element={
+                <IDELayout 
+                  onOpenSettings={() => setShowSettings(true)}
+                  onOpenPlugins={() => setShowPlugins(true)}
+                />
+              } 
+            />
+          </Routes>
+        </BrowserRouter>
+        
+        {/* Modals */}
+        <SettingsModal open={showSettings} onOpenChange={setShowSettings} />
+        <PluginsModal open={showPlugins} onOpenChange={setShowPlugins} />
+        <AuthModal />
+        
+        {/* Toast Notifications */}
+        <Toaster 
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: 'rgba(11, 11, 20, 0.95)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#fff',
+            },
+          }}
+        />
+      </div>
+    </AuthProvider>
   );
 }
 
