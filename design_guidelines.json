@@ -1,0 +1,112 @@
+{
+  "theme": "SYNTHESUS Hyperspace Intelligence (Dark Theme Only)",
+  "app_type": "dashboard, hybrid_fullstack",
+  "typography": {
+    "headings": "Outfit, sans-serif (tracking-tight for large headings)",
+    "body": "IBM Plex Sans, sans-serif (tracking-wide for readability)",
+    "code": "JetBrains Mono, monospace",
+    "hierarchy": "Headings must use the cosmic gradient (bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-pink-500 to-orange-500). Labels and small text must use uppercase with tracking-[0.2em] for a technical feel.",
+    "forbidden": ["Inter", "Space Grotesk"]
+  },
+  "colors": {
+    "background": {
+      "base": "#030308",
+      "surface": "#0B0B14",
+      "panel": "rgba(11, 11, 20, 0.6)"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A1A1AA",
+      "muted": "#71717A"
+    },
+    "accents": {
+      "gold": "#FFD700",
+      "yellow": "#FFB800",
+      "pink": "#FF007F",
+      "orange": "#FF7A00"
+    },
+    "gradients": {
+      "cosmic": "bg-gradient-to-r from-yellow-400 via-pink-500 to-orange-500",
+      "warp": "bg-gradient-to-b from-transparent via-pink-500/20 to-transparent"
+    },
+    "borders": {
+      "default": "border-white/10",
+      "active": "border-pink-500/50",
+      "glow": "shadow-[0_0_15px_rgba(255,0,127,0.3)]"
+    }
+  },
+  "visual_enhancers": {
+    "background_effects": "Use react-tsparticles to create a hyperspace warp-speed starfield in the deepest background (z-index: -1). Particles should move towards the viewer to simulate light speed. Add animated planets and chemical asteroid trails using custom images in the particles configuration or CSS animations.",
+    "glassmorphism": "For floating panels (Settings, Plugin Marketplace), use optical crystal clarity: bg-black/60 backdrop-blur-2xl border-white/10. Do not use plain transparent backgrounds.",
+    "glow_effects": "Use drop-shadows on active elements (like the current file or active AI chat bubble). Implement gradient borders with glow effects.",
+    "warp_flash": "When generating AI code or switching models, trigger a brief framer-motion full-panel subtle pink/orange flash (opacity 0 to 0.05 then back to 0).",
+    "tracing_beam": "Use a shimmering gradient border (tracing beam style) for active panels or AI typing indicators."
+  },
+  "layouts": {
+    "ide_structure": "A high-density grid pattern. Use a split-pane layout (like react-resizable-panels). Left: Explorer, Center: Monaco Editor, Right: AI Chat/Plugin Panel, Bottom: Integrated Terminal.",
+    "spacing": "IDE interfaces require tight functional spacing (p-2 to p-4) inside panels, but use generous padding (p-8) for modal overlays and settings pages.",
+    "borders": "Expose the skeleton of the IDE. Panels should have strict 1px border-r or border-b using border-white/10. Avoid fully rounded corners on main panels; stick to sharp or 4px (rounded-sm) radii for internal items."
+  },
+  "components": {
+    "buttons": "Pill-shaped or sharp-edged. Primary actions use the cosmic gradient background. Secondary actions are transparent with border-white/20 and hover to border-pink-500/50.",
+    "inputs": "Cosmic-themed inputs: bg-white/5 border-white/10 focus:border-pink-500 focus:ring-1 focus:ring-pink-500/50 text-white.",
+    "cards": "Cardless style for the IDE panes. For settings/plugins, use Glassmorphism panels (bg-black/40 backdrop-blur-xl).",
+    "chat_bubbles": "User: bg-white/10 text-white. AI: bg-pink-500/10 border border-pink-500/30 text-pink-50 with code blocks in JetBrains Mono.",
+    "dropdowns": "Model selectors (LM Studio / Ollama) must use Shadcn Select, heavily customized with a dark glass backdrop and hover glows.",
+    "scrollbars": "MUST customize scrollbars globally. Width 6px, track transparent, thumb bg-white/20 hover:bg-white/40 rounded-full."
+  },
+  "motion": {
+    "transitions": "Use Framer Motion for modal entrances, dropdowns, and AI chat staggered list animations.",
+    "micro_interactions": "Hover states on file tree items should slightly translate right (translate-x-1) and change text color to white.",
+    "loading": "Use an ASCII or simple animated ring with the cosmic gradient for AI thinking states."
+  },
+  "3d_libraries": {
+    "primary": "react-tsparticles",
+    "instructions": "Install `react-tsparticles` and `tsparticles` (or `tsparticles-engine`). Configure a starfield with high velocity to simulate 'hyperspace' behind the IDE panels. Ensure z-index is lowest so it doesn't block clicks. Include slower, larger particles for animated planets and long-trail particles for chemical asteroid trails.",
+    "config_hint": "Use direction: 'none', outModes: 'out', and high speed (min: 15, max: 40) with trails (length: 5) to stretch the stars."
+  },
+  "media": {
+    "icons": "Use lucide-react or @phosphor-icons/react (Duotone weight for high-end feel).",
+    "images": [
+      {
+        "url": "https://images.unsplash.com/photo-1507908708918-778587c9e563?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzZ8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGNvc21pYyUyMGdhbGF4eXxlbnwwfHx8fDE3NzQyMTQxMzh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Galaxy wallpaper - Use as an optional overlay blended (mix-blend-screen, opacity 10%) on the login or welcome screen.",
+        "category": "backgrounds"
+      },
+      {
+        "url": "https://images.pexels.com/photos/1629236/pexels-photo-1629236.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Vibrant abstract artwork evoking a galaxy with blue and pink hues. Good for Plugin Marketplace banners.",
+        "category": "banners"
+      }
+    ]
+  },
+  "accessibility": {
+    "contrast": "Ensure minimum 4.5:1 contrast for normal text. Use text-shadow to boost legibility over gradients.",
+    "testing": "All interactive elements MUST include data-testid attribute in kebab-case."
+  },
+  "instructions_to_main_agent": [
+    "Do NOT use 'Inter' or 'Space Grotesk' for headings. Use 'Outfit' for headers, 'IBM Plex Sans' for body, and 'JetBrains Mono' for code.",
+    "Do NOT center align the app container in App.css. Let the split panes dictate layout.",
+    "Implement the UI as a fully responsive Dark Mode ONLY application.",
+    "Use react-resizable-panels for the IDE layout (Explorer, Editor, Chat, Terminal).",
+    "Integrate @monaco-editor/react for the code editor.",
+    "Integrate xterm for the terminal.",
+    "Use react-tsparticles for the hyperspace background effect.",
+    "The UI must feel like a premium command center: use 1px solid borders with 10% opacity, sharp corners for panes, and localized neon glows for active elements.",
+    "Model Selector (LM Studio/Ollama) should be prominently placed in the header or top of the AI chat pane.",
+    "Build the Model Management pane with sliders for Temperature and Max Tokens, and options to test the models directly.",
+    "Plugin Marketplace should allow browsing and enabling AI plugins, using cards with glassmorphism effects."
+  ],
+  "universal_guidelines": [
+    "No generic centered layouts, simplistic gradients, or uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur).",
+    "MUST NOT apply universal transition (e.g., transition: all). Add transitions for specific properties.",
+    "MUST NOT center align the app container in CSS.",
+    "Always use modern button styles (pill-shaped or sharp) with interaction animations.",
+    "NEVER use AI assistant emoji characters for icons.",
+    "Use Sonner for toasts.",
+    "Prioritize using pre-existing components from src/components/ui.",
+    "Components MUST use named exports; Pages MUST use default exports."
+  ]
+}
